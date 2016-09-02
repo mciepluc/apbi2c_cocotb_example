@@ -1,0 +1,6 @@
+[submodule "apbi2c"]
+	path = apbi2c
+	url = https://github.com/freecores/apbi2c
+[submodule "cocotb"]
+	path = cocotb
+	url = https://github.com/mciepluc/cocotb
