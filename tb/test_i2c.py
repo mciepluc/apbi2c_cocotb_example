@@ -4,6 +4,7 @@ from cocotb.binary import BinaryValue
 from cocotb.clock import Clock
 from cocotb.result import ReturnValue, TestFailure
 from cocotb.scoreboard import Scoreboard
+from cocotb.coverage import reportCoverage
 from apb import APBSlave, APBTransaction
 from coverage import APBCoverage
 
@@ -19,7 +20,7 @@ def apb_xaction_logger(logger, apb_monitor):
         xaction = yield apb_monitor.wait_for_recv()
         log_xaction(xaction)
 
-@cocotb.test()  
+@cocotb.test()
 def test(dut):
     """Testing APBI2C core!"""
     log = cocotb.logging.getLogger("cocotb.test")
@@ -34,12 +35,32 @@ def test(dut):
     yield Timer(8000)
 
     @cocotb.coroutine
-    def apb_write(data):
+    def config_write(addr, data):
+        xaction = APBTransaction(addr, data, write=True)
+        xaction.randomize()
+        yield apb.send(xaction)
+
+    @cocotb.coroutine
+    def fifo_write(data):
         xaction = APBTransaction(0, data, write=True)
         xaction.randomize()
         yield apb.send(xaction)
 
-    yield apb_write(1)
+    @cocotb.coroutine
+    def fifo_read(data):
+        xaction = APBTransaction(4, data, write=False)
+        xaction.randomize()
+        rdata = yield apb.send(xaction)
+        raise rdata
+
+    yield config_write(8, 0x0011)
+    yield config_write(12, 0x0100)
+
+    yield fifo_write(0x01234567)
+    yield fifo_write(0x89ABCDEF)
+ 
 
     yield Timer(1000000)
+
+    cocotb.coverage.reportCoverage(log.info, bins=True)
 
