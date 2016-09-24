@@ -1,13 +1,10 @@
 import cocotb
-from cocotb.triggers import Timer, RisingEdge, ReadOnly, NextTimeStep, Event
+from cocotb.triggers import RisingEdge, ReadOnly
 from cocotb.binary import BinaryValue
 from cocotb.drivers import BusDriver
 from cocotb.monitors import BusMonitor
-from cocotb.binary import BinaryValue
+from cocotb.result import ReturnValue
 from cocotb.decorators import coroutine
-from cocotb.clock import Clock
-from cocotb.result import ReturnValue, TestFailure
-from cocotb.coverage import CoverPoint
 from cocotb.crv import Randomized
 
 class APBTransaction(Randomized):

@@ -5,19 +5,32 @@ from cocotb.clock import Clock
 from cocotb.result import ReturnValue, TestFailure
 from cocotb.scoreboard import Scoreboard
 from cocotb.coverage import reportCoverage
+from i2c import I2CMonitor
 from apb import APBSlave, APBTransaction
 from coverage import APBCoverage
+from coverage import I2CCoverage
 
 @cocotb.coroutine
 def apb_xaction_logger(logger, apb_monitor):
     
-    @APBCoverage()
+    @APBCoverage
     def log_xaction(xaction):
         logger.info("APB Transaction %s 0x%08X -> 0x%08X" % 
             ("Write" if xaction.write else "Read ", xaction.addr, xaction.data))
             
     while True:
         xaction = yield apb_monitor.wait_for_recv()
+        log_xaction(xaction)
+        
+@cocotb.coroutine
+def i2c_xaction_logger(logger, i2c_monitor):
+    
+    @I2CCoverage
+    def log_xaction(xaction):
+        logger.info("I2C Transaction 0x%08X" % xaction.data)
+            
+    while True:
+        xaction = yield i2c_monitor.wait_for_recv()
         log_xaction(xaction)
 
 @cocotb.test()
@@ -28,6 +41,9 @@ def test(dut):
 
     apb = APBSlave(dut, name=None, clock=dut.PCLK)
     cocotb.fork(apb_xaction_logger(log, apb))
+    
+    i2c_monitor = I2CMonitor(dut, name=None, clock=dut.PCLK)
+    cocotb.fork(i2c_xaction_logger(log, i2c_monitor))
 
     dut.PRESETn <= 0
     yield Timer(2000)
