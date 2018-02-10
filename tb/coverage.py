@@ -34,51 +34,70 @@ from cocotb import coverage
 
 #Functional coverage of the tested controller - sort of a verification plan
 
-#APB functional coverage: READ/WRITE, random delay and all addresses from the register space
+#APB functional coverage: READ/WRITE, random delay and all addresses 
+#from the register space
 #also cross of the delay with R/W
 APBCoverage = cocotb.coverage.coverageSection(
-  cocotb.coverage.CoverPoint("apb.delay", 
+  cocotb.coverage.CoverPoint("top.apb.delay", 
     xf = lambda xaction : xaction.delay, 
     rel = lambda _val, _range : _range[0] < _val < _range[1],
-    bins = [(0,5), (5,10), (10,15)]
+    bins = [(0,3), (4,7), (8,15)]
   ),
-  cocotb.coverage.CoverPoint("apb.addr",  xf = lambda xaction : xaction.addr, bins = [0,4,8,12]),
-  cocotb.coverage.CoverPoint("apb.write", xf = lambda xaction : xaction.write, bins = [True, False]),
-  cocotb.coverage.CoverCross("apb.writeXdelay", items = ["apb.delay", "apb.write"])
+  cocotb.coverage.CoverPoint("top.apb.addr",  
+    xf = lambda xaction : xaction.addr, bins = [0,8,12]
+  ),
+  cocotb.coverage.CoverPoint("top.apb.write", 
+    xf = lambda xaction : xaction.write, bins = [True, False]
+  ),
+  cocotb.coverage.CoverCross("top.apb.writeXdelay", 
+    items = ["top.apb.delay", "top.apb.write"]
+  )
 )
 
 #I2C Functional Coverage - just check if different data processed
 I2CCoverage = cocotb.coverage.coverageSection(
-  cocotb.coverage.CoverPoint("i2c.data", 
-    xf = lambda xaction : xaction.data, 
-    rel = lambda _val, _range : _range[0] <= _val <= _range[1],
-    bins = [(0,0xFFFF), (0x10000, 0xFFFFFF), (0x1000000,0xFFFFFFFF)]
+  cocotb.coverage.CoverPoint("top.i2c.data", 
+    xf = lambda xaction : xaction.data >> 24, 
+    bins = list(range(0,255))
   ),
 )
 
 #Operations coverage: READ/WRITE, number of words transmitted and clock divider
 #cross of the above as a main verification goal
 OperationsCoverage = cocotb.coverage.coverageSection(
-  cocotb.coverage.CoverPoint("op.direction",  
-    xf = lambda direction, repeat, divider, ok : direction, 
+  cocotb.coverage.CoverPoint("top.op.direction",  
+    xf = lambda operation, ok : operation.direction, 
     bins = ['read', 'write']
   ),
-  cocotb.coverage.CoverPoint("op.repeat",  
-    xf = lambda direction, repeat, divider, ok : repeat, 
+  cocotb.coverage.CoverPoint("top.op.repeat",  
+    xf = lambda operation, ok : operation.repeat, 
     rel = lambda _val, _range : _range[0] <= _val <= _range[1],
-    bins = [(1,3), (4,7), (8,15), (16,31)]
+    bins = [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
   ),  
-  cocotb.coverage.CoverPoint("op.divider",  
-    xf = lambda direction, repeat, divider, ok : divider, 
+  cocotb.coverage.CoverPoint("top.op.divider",  
+    xf = lambda operation, ok : operation.divider, 
     rel = lambda _val, _range : _range[0] <= _val <= _range[1],
-    bins = [(1,3), (4,7), (8,15), (16,31)]
+    bins = [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
   ),
-  cocotb.coverage.CoverCross("op.cross", items = ["op.direction", "op.repeat", "op.divider"])
+  cocotb.coverage.CoverCross("top.op.cross", 
+    items = ["top.op.direction", "top.op.repeat", "top.op.divider"]
+  )
 )
 
 #Operations order coverage: check if performed two operations
 #in a defined order e.g. read then write
-OperationsOrderCoverage = cocotb.coverage.CoverPoint("op.order",  
-    xf = lambda prev_direction, direction : (prev_direction, direction),
-    bins = [("read", "read"), ("read", "write"), ("write", "read"), ("write", "write")]
+OperationsOrderCoverage = cocotb.coverage.coverageSection(
+  cocotb.coverage.CoverPoint("top.op.direction_order",  
+    xf = lambda prev_operation, operation : 
+      (prev_operation.direction, operation.direction),
+    bins = [("read", "read"), ("read", "write"), 
+      ("write", "read"), ("write", "write")
+    ]
+  ),
+  cocotb.coverage.CoverPoint("top.op.repeat_order",  
+    xf = lambda prev_operation, operation : 
+      prev_operation.repeat - operation.repeat,
+    rel = lambda _val, _range : _range[0] <= _val <= _range[1],
+    bins = [(0, 0), (-7, -1), (1, 7)]
   )
+)

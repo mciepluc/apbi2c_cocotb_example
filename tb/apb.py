@@ -25,7 +25,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. '''
 
 """
-Testbench of the apbi2c controller - APB Transaction and Agent (Driver + Monitor)
+Testbench of the apbi2c controller - APB Transaction and Agent 
+(Driver + Monitor)
 
 """
 
@@ -106,8 +107,11 @@ class APBSlave(BusDriver, BusMonitor):
             yield RisingEdge(self.clock)
             yield ReadOnly()
             if (self.bus.PENABLE.value == 1) & (self.bus.PREADY.value == 1):
-                data = self.bus.PWDATA.value if self.bus.PWRITE.value else self.bus.PRDATA.value
-                xaction = APBTransaction(self.bus.PADDR.value, data, self.bus.PWRITE.value == 1, delay)
+                data = self.bus.PWDATA.value if self.bus.PWRITE.value \
+                  else self.bus.PRDATA.value
+                xaction = APBTransaction(
+                  self.bus.PADDR.value, data, self.bus.PWRITE.value == 1, delay
+                )
                 delay = 0
                 self._recv(xaction)
             else:

@@ -46,9 +46,11 @@ from coverage import *
 from i2c import *
 
 #enable detailed logging of APB and I2C transactions
-LOG_XACTION_ENABLE = True
+LOG_XACTION_ENABLE = False
 #enable usage of checkpoints during the test
 ENABLE_CHECKPOINTS = True
+#if set false, corresponds to standard regression, if true, tree regression
+CHECKPOINTS_TREE_STRUCTURE = True
 
 @cocotb.test()
 def test_tree(dut):
@@ -81,7 +83,7 @@ def test_tree(dut):
             log.info("I2C Monitor: Transaction 0x%08X" % i2c_xaction.data)
         received_i2c_xactions.append(i2c_xaction)
         
-    #add callback to the monitor to call the catcher when I2C transaction observed
+    #callback to the monitor to call the catcher when I2C transaction observed
     i2c_monitor.add_callback(i2c_xaction_catcher)
     
     #the catcher for observerd APB transaction on the interfece
@@ -90,17 +92,23 @@ def test_tree(dut):
         if LOG_XACTION_ENABLE:
             try:
                 log.info("APB Transaction %s 0x%08X -> 0x%08X" % 
-                    ("Write" if apb_xaction.write else "Read ", apb_xaction.addr, apb_xaction.data))
+                    ("Write" if apb_xaction.write else "Read ", 
+                     apb_xaction.addr, apb_xaction.data)
+                )
             except:
                 log.info("APB Transaction %s 0x%08X -> 0x%08s" % 
-                    ("Write" if apb_xaction.write else "Read ", apb_xaction.addr, apb_xaction.data))
+                    ("Write" if apb_xaction.write else "Read ", 
+                     apb_xaction.addr, apb_xaction.data)
+                )
                 
-    #add callback to the monitor to call the catcher when APB transaction observed
+    #callback to the monitor to call the catcher when APB transaction observed
     apb.add_callback(apb_xaction_catcher)
     
-    #define "I2C Operation" as a bunch of r/ws with defined number of data and a specific clock divider
-    #this is the main stuff to be tested - we want to know if controller correctly processes
-    #transfers with different directions, amount of data and SCK period
+    #define "I2C Operation" as a bunch of r/ws with defined number of data 
+    #and a specific clock divider
+    #this is the main stuff to be tested - we want to know if controller 
+    #correctly processes transfers with different directions, amount of 
+    #data and SCK period
     class I2C_Operation(Randomized):
         def __init__(self, direction = 'write', repeat = 1, divider = 1):
             Randomized.__init__(self)
@@ -112,32 +120,49 @@ def test_tree(dut):
             
             #I2C_Operation objects may be fully randomized
             self.addRand("direction",["write", "read"])
-            self.addRand("repeat_range",[(1,3), (4,7), (8,15), (16,31)])
-            self.addRand("divider_range",[(1,3), (4,7), (8,15), (16,31)])
+            self.addRand("repeat_range",
+              [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
+            )
+            self.addRand("divider_range",
+              [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
+            )
         
-        #post_randomize used to pick random values from already randomized ranges
+        #post_randomize to pick random values from already randomized ranges
         def post_randomize(self):
-            self.repeat = random.randint(self.repeat_range[0], self.repeat_range[1])
-            self.divider = random.randint(self.divider_range[0], self.divider_range[1])
+            self.repeat = random.randint(
+              self.repeat_range[0], self.repeat_range[1]
+            )
+            self.divider = random.randint(
+              self.divider_range[0], self.divider_range[1]
+            )
             
     #list of completed operations for the summary
     operations_completed = []
+
+    #function sampling operations order coverage (see coverage.py)
+    @OperationsOrderCoverage
+    def sample_operations_order_coverage(prev_operation, operation):
+        pass
     
     #function sampling operations coverage (see coverage.py)
     @OperationsCoverage
-    def sample_operation(direction, repeat, divider, ok):
-        operations_completed.append((direction, repeat, divider, ok))
+    def sample_operation(operation, ok):
+        operations_completed.append((operation, ok))
+        if (len(operations_completed)>1):
+            sample_operations_order_coverage(
+             operations_completed[-2][0], operations_completed[-1][0]
+            ) 
         if ok:
-            log.info("Operation %s of %d words with divider %d finished successfully" % 
-              (direction, repeat, divider))
+            log.info(
+               "Operation %s of %d words, divider %d - OK!" % 
+              (operation.direction, operation.repeat, operation.divider)
+            )
         else:
-            log.error("Operation %s of %d words with divider %d finished with error!" % 
-              (direction, repeat, divider))
+            log.error(
+               "Operation %s of %d words, divider %d - error!" % 
+              (operation.direction, operation.repeat, operation.divider)
+            )
               
-    #function sampling operations order coverage (see coverage.py)
-    @OperationsOrderCoverage
-    def sample_operations_order_coverage(prev_direction, direction):
-        pass
               
     #a test sequence - complete I2C Write Operation
     @cocotb.coroutine
@@ -176,7 +201,7 @@ def test_tree(dut):
                     break
         
         #call sampling at the and of the sequence
-        sample_operation("write", operation.repeat, operation.divider, ok)
+        sample_operation(operation, ok)
         
     #a test sequence - complete I2C Read Operation
     @cocotb.coroutine
@@ -202,11 +227,12 @@ def test_tree(dut):
                 if (rdata != expected_in[i].data):
                     ok = False
             except:
-                log.error("APB read data from FIFO is 'X'")
+                if LOG_XACTION_ENABLE:
+                    log.error("APB read data from FIFO is 'X'")
                 ok = False
                 
         #call sampling at the and of the sequence
-        sample_operation("read", operation.repeat, operation.divider, ok)
+        sample_operation(operation, ok)
         
     #a test sequence - APB registers operation (sort of UVM_REG :) )
     @cocotb.coroutine
@@ -223,11 +249,15 @@ def test_tree(dut):
             yield apb.send(apb_xaction_wr)
             apb_xaction_rd.randomize()
             rdata = yield apb.send(apb_xaction_rd)
-            try:
-                if rdata != data:
-                    log.error("APB read data @ 0x%08X does not match written value" % addr)
-            except:
-                log.error("APB read data @ 0x%08X is 'X'" % addr)
+            if LOG_XACTION_ENABLE:
+                try:
+                    if rdata != data:
+                        log.error(
+                          "APB read data @ 0x%08X does not match written value" 
+                          % addr
+                        )
+                except:
+                    log.error("APB read data @ 0x%08X is 'X'" % addr)
                 
     #reset the DUT
     dut.PRESETn <= 0
@@ -246,28 +276,44 @@ def test_tree(dut):
     #list of already covered operations, used to constraint the randomization
     already_covered = []
     
-    #constraint for the operation randomization - do not use already covered combinations
+    #constraint for the operation randomization - do not use already 
+    #covered combinations
     def op_constraint(direction, divider_range, repeat_range):
         return not (direction, repeat_range, divider_range) in already_covered
-        
-    #previous I2C operation, used for OperationsOrderCoverage (see coverage.py)
-    i2c_op_prev = None
     
-    #we define test end condition as reaching 99% coverage at the op.cross cover item
-    cov_op_cross = 0
-    while cov_op_cross < 99:
+    apb_cover_item = cocotb.coverage.coverage_db["top.apb.writeXdelay"]
+    top_cover_item = cocotb.coverage.coverage_db["top"]
+    
+    #we define test end condition as reaching 99% coverage at the 
+    #top cover item
+    cov_op = 0
+    while cov_op < 99:
         
         #restore randomly selected checkpoint
         if ENABLE_CHECKPOINTS:
-            chkp_to_restore = random.choice(checkpoints.keys())
+            if CHECKPOINTS_TREE_STRUCTURE:
+                chkp_to_restore = random.choice(checkpoints.keys())
+            else:
+                chkp_to_restore = 'init'
+
             log.info("Restoring a simulation checkpoint: " + chkp_to_restore)
             current_chceckpoint = checkpoints[chkp_to_restore]
             restore(current_chceckpoint[0])
     
         #create I2C operation object to be executed
         i2c_op = I2C_Operation()
-        i2c_op.randomize_with(op_constraint)
-        already_covered.append((i2c_op.direction, i2c_op.repeat_range, i2c_op.divider_range))
+        #if there is no tree structure, knowledge about already covered 
+        #cases cannot be used
+        if ENABLE_CHECKPOINTS & CHECKPOINTS_TREE_STRUCTURE:
+            try:
+                i2c_op.randomize_with(op_constraint)
+            except:
+                i2c_op.randomize()
+        else:
+            i2c_op.randomize()
+        already_covered.append(
+          (i2c_op.direction, i2c_op.repeat_range, i2c_op.divider_range)
+        )
         
         #call test sequence
         if i2c_op.direction == "read":
@@ -276,40 +322,37 @@ def test_tree(dut):
             yield segment_i2c_write_operation(i2c_op)
             
         if ENABLE_CHECKPOINTS:
-            if operations_completed[-1][3]: #if status is OK, add this simulation point to the checkpoints list
+            #if status is OK, add this simulation point to the checkpoints list
+            if operations_completed[-1][1]: 
                 chkp_name = str(get_sim_time('ns'))
                 log.info("Creating a simulation checkpoint: " + chkp_name)
                 checkpoints[chkp_name] = (checkpoint(), i2c_op)
                 
-        #call APB test sequence as long as cover item apb.writeXdelay coverage level is below 100%
-        if cocotb.coverage.coverage_db["apb.writeXdelay"].coverage*100/cocotb.coverage.coverage_db["apb.writeXdelay"].size < 100:
+        #call APB test sequence as long as cover item apb.writeXdelay 
+        #coverage level is below 100%
+        if apb_cover_item.coverage*100/apb_cover_item.size < 100:
             yield segment_apb_rw(repeat = random.randint(1,5))
-            
-        
-        #sample OperationsOrderCoverage (see coverage.py)
-        if ENABLE_CHECKPOINTS:
-            if current_chceckpoint[1] is not None:
-                sample_operations_order_coverage(current_chceckpoint[1].direction, i2c_op.direction)
-        else:
-            if i2c_op_prev is not None:
-                sample_operations_order_coverage(i2c_op_prev.direction, i2c_op.direction)
-        
-        i2c_op_prev = i2c_op
-        
+                    
         #update the coverage level
-        cov_op_cross = cocotb.coverage.coverage_db["op.cross"].coverage*100/cocotb.coverage.coverage_db["op.cross"].size
-        log.info("Current op.cross coverage level = %d %%", cov_op_cross)
+        
+        cov_op_prev = cov_op
+        cov_op = top_cover_item.coverage*100.0/top_cover_item.size
+        log.info("Current overall coverage level = %f %%", cov_op)
         
     #print summary
     log.info("Opertions finished succesfully:")
     for elem in operations_completed:
-        if elem[3]:
-            log.info("   %s of %d words with divider %d" % (elem[0], elem[1], elem[2]))
+        if elem[1]:
+            log.info("   %s of %d words with divider %d" % 
+              (elem[0].direction, elem[0].repeat, elem[0].divider)
+            )
             
     log.info("Opertions finished with error:")
     for elem in operations_completed:
-        if not elem[3]:
-            log.info("   %s of %d words with divider %d" % (elem[0], elem[1], elem[2]))
+        if not elem[1]:
+            log.info("   %s of %d words with divider %d" % 
+              (elem[0].direction, elem[0].repeat, elem[0].divider)
+            )
             
     log.info("Functional coverage details:")
     cocotb.coverage.reportCoverage(log.info, bins=False)

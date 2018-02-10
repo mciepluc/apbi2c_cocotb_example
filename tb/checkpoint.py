@@ -30,12 +30,12 @@ Testbench of the apbi2c controller - additional checkpointing stuff
 """
 
 #This is an example how to do a checkpointing in the testbench.
-#Checkpointing is storing the DUT state during simulation and loading it later
-#as a starting point for further simulation. Very useful stuff, for example,
-#if needed to initialize DUT and then start various tests from the after-init
-#state. This feature is available in some commercial simulators but it is difficult
-#to use it as a part of the test logic. This exaplme allows for using checkpointing
-#during the test in Cocotb.
+#Checkpointing is storing the DUT state during simulation and loading it 
+#later as a starting point for further simulation. Very useful stuff, 
+#for example, if needed to initialize DUT and then start various tests 
+#from the after-init state. This feature is available in some commercial 
+#simulators but it is difficult to use it as a part of the test logic. 
+#This exaplme allows for using checkpointing during the test in Cocotb.
 
 import simulator
 from cocotb.handle import *
@@ -59,6 +59,7 @@ def get_checkpoint_hier(entity):
             get_checkpoint_hier(hdl)
         elif simulator.get_type(ii) is simulator.REG:
             checkpoint_hier.append(hdl)
+            
     
 #returns a created checkpoint
 def checkpoint():
