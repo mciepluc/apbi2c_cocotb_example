@@ -30,33 +30,34 @@ Testbench of the apbi2c controller - functional coverage
 """
 
 import cocotb
-from cocotb import coverage
+
+from cocotb_coverage.coverage import *
 
 #Functional coverage of the tested controller - sort of a verification plan
 
 #APB functional coverage: READ/WRITE, random delay and all addresses 
 #from the register space
 #also cross of the delay with R/W
-APBCoverage = cocotb.coverage.coverageSection(
-  cocotb.coverage.CoverPoint("top.apb.delay", 
+APBCoverage = coverageSection(
+  CoverPoint("top.apb.delay", 
     xf = lambda xaction : xaction.delay, 
     rel = lambda _val, _range : _range[0] < _val < _range[1],
     bins = [(0,3), (4,7), (8,15)]
   ),
-  cocotb.coverage.CoverPoint("top.apb.addr",  
+  CoverPoint("top.apb.addr",  
     xf = lambda xaction : xaction.addr, bins = [0,8,12]
   ),
-  cocotb.coverage.CoverPoint("top.apb.write", 
+  CoverPoint("top.apb.write", 
     xf = lambda xaction : xaction.write, bins = [True, False]
   ),
-  cocotb.coverage.CoverCross("top.apb.writeXdelay", 
+  CoverCross("top.apb.writeXdelay", 
     items = ["top.apb.delay", "top.apb.write"]
   )
 )
 
 #I2C Functional Coverage - just check if different data processed
-I2CCoverage = cocotb.coverage.coverageSection(
-  cocotb.coverage.CoverPoint("top.i2c.data", 
+I2CCoverage = coverageSection(
+  CoverPoint("top.i2c.data", 
     xf = lambda xaction : xaction.data >> 24, 
     bins = list(range(0,255))
   ),
@@ -64,37 +65,37 @@ I2CCoverage = cocotb.coverage.coverageSection(
 
 #Operations coverage: READ/WRITE, number of words transmitted and clock divider
 #cross of the above as a main verification goal
-OperationsCoverage = cocotb.coverage.coverageSection(
-  cocotb.coverage.CoverPoint("top.op.direction",  
+OperationsCoverage = coverageSection(
+  CoverPoint("top.op.direction",  
     xf = lambda operation, ok : operation.direction, 
     bins = ['read', 'write']
   ),
-  cocotb.coverage.CoverPoint("top.op.repeat",  
+  CoverPoint("top.op.repeat",  
     xf = lambda operation, ok : operation.repeat, 
     rel = lambda _val, _range : _range[0] <= _val <= _range[1],
     bins = [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
   ),  
-  cocotb.coverage.CoverPoint("top.op.divider",  
+  CoverPoint("top.op.divider",  
     xf = lambda operation, ok : operation.divider, 
     rel = lambda _val, _range : _range[0] <= _val <= _range[1],
     bins = [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
   ),
-  cocotb.coverage.CoverCross("top.op.cross", 
+  CoverCross("top.op.cross", 
     items = ["top.op.direction", "top.op.repeat", "top.op.divider"]
   )
 )
 
 #Operations order coverage: check if performed two operations
 #in a defined order e.g. read then write
-OperationsOrderCoverage = cocotb.coverage.coverageSection(
-  cocotb.coverage.CoverPoint("top.op.direction_order",  
+OperationsOrderCoverage = coverageSection(
+  CoverPoint("top.op.direction_order",  
     xf = lambda prev_operation, operation : 
       (prev_operation.direction, operation.direction),
     bins = [("read", "read"), ("read", "write"), 
       ("write", "read"), ("write", "write")
     ]
   ),
-  cocotb.coverage.CoverPoint("top.op.repeat_order",  
+  CoverPoint("top.op.repeat_order",  
     xf = lambda prev_operation, operation : 
       prev_operation.repeat - operation.repeat,
     rel = lambda _val, _range : _range[0] <= _val <= _range[1],

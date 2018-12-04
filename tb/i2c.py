@@ -36,7 +36,8 @@ from cocotb.binary import BinaryValue
 from cocotb.drivers import BusDriver
 from cocotb.monitors import BusMonitor
 from cocotb.decorators import coroutine
-from cocotb.crv import Randomized
+
+from cocotb_coverage.crv import Randomized
 
 #I2C Transaction object
 class I2CTransaction(Randomized):
@@ -77,10 +78,10 @@ class I2CMonitor(BusMonitor):
             yield RisingEdge(self.clock)
             yield ReadOnly()
             try:
-                sda = 0 if self.bus.SDA.value == 'x' else self.bus.SDA.value
+                sda = 0 if self.bus.SDA == 'x' else int(self.bus.SDA)
             except ValueError:
                 sda = 0
-            if (self.bus.SCL.value == 1):
+            if (self.bus.SCL == 1):
                 #start bit
                 if (not started) & (not pre_started) & (sda == 1):
                     pre_started = True

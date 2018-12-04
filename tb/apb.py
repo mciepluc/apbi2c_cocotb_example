@@ -37,7 +37,8 @@ from cocotb.drivers import BusDriver
 from cocotb.monitors import BusMonitor
 from cocotb.result import ReturnValue
 from cocotb.decorators import coroutine
-from cocotb.crv import Randomized
+
+from cocotb_coverage.crv import Randomized
 
 #APB Transaction object
 class APBTransaction(Randomized):
@@ -85,8 +86,8 @@ class APBSlave(BusDriver, BusMonitor):
         self.bus.PENABLE <= 1
         while True:
             yield ReadOnly()
-            if self.bus.PREADY.value:
-                rval = self.bus.PRDATA.value
+            if (self.bus.PREADY == 1):
+                rval = self.bus.PRDATA
                 break
             yield RisingEdge(self.clock)
         yield RisingEdge(self.clock)
@@ -106,11 +107,11 @@ class APBSlave(BusDriver, BusMonitor):
         while True:
             yield RisingEdge(self.clock)
             yield ReadOnly()
-            if (self.bus.PENABLE.value == 1) & (self.bus.PREADY.value == 1):
-                data = self.bus.PWDATA.value if self.bus.PWRITE.value \
-                  else self.bus.PRDATA.value
+            if (self.bus.PENABLE == 1) & (self.bus.PREADY == 1):
+                data = self.bus.PWDATA if self.bus.PWRITE \
+                  else self.bus.PRDATA
                 xaction = APBTransaction(
-                  self.bus.PADDR.value, data, self.bus.PWRITE.value == 1, delay
+                  self.bus.PADDR, data, self.bus.PWRITE == 1, delay
                 )
                 delay = 0
                 self._recv(xaction)

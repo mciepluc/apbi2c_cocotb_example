@@ -31,14 +31,17 @@ Testbench of the apbi2c controller - top level containing main test logic
 
 import random
 import cocotb
+import cocotb_coverage
 
 from cocotb.triggers import ReadOnly
 from cocotb.clock import Clock, Timer
 from cocotb.result import ReturnValue, TestFailure
 from cocotb.scoreboard import Scoreboard
-from cocotb.crv import Randomized
-from cocotb.coverage import reportCoverage
 from cocotb.utils import get_sim_time
+
+from cocotb_coverage.crv import Randomized
+from cocotb_coverage.coverage import reportCoverage
+from cocotb_coverage.coverage import coverage_db
 
 from apb import *
 from checkpoint import *
@@ -46,11 +49,18 @@ from coverage import *
 from i2c import *
 
 #enable detailed logging of APB and I2C transactions
-LOG_XACTION_ENABLE = False
-#enable usage of checkpoints during the test
-ENABLE_CHECKPOINTS = True
-#if set false, corresponds to standard regression, if true, tree regression
-CHECKPOINTS_TREE_STRUCTURE = True
+LOG_XACTION_ENABLE = True
+
+#Below options must be "False" for Icarus, but likely will lead to controller
+#hang-up, checkpoints should be enabled in order to restart each test sequence
+#from reset (or stable) state
+
+#enable usage of checkpoints during the test 
+ENABLE_CHECKPOINTS = False
+#if set false, corresponds to standard regression suite where tests are started
+#from the init state, when true, tests may be started from already achieved 
+#state, which enables faster coverage closure
+CHECKPOINTS_TREE_STRUCTURE = False
 
 @cocotb.test()
 def test_tree(dut):
@@ -93,12 +103,12 @@ def test_tree(dut):
             try:
                 log.info("APB Transaction %s 0x%08X -> 0x%08X" % 
                     ("Write" if apb_xaction.write else "Read ", 
-                     apb_xaction.addr, apb_xaction.data)
+                     int(apb_xaction.addr), int(apb_xaction.data))
                 )
             except:
                 log.info("APB Transaction %s 0x%08X -> 0x%08s" % 
                     ("Write" if apb_xaction.write else "Read ", 
-                     apb_xaction.addr, apb_xaction.data)
+                     int(apb_xaction.addr), int(apb_xaction.data))
                 )
                 
     #callback to the monitor to call the catcher when APB transaction observed
@@ -281,18 +291,18 @@ def test_tree(dut):
     def op_constraint(direction, divider_range, repeat_range):
         return not (direction, repeat_range, divider_range) in already_covered
     
-    apb_cover_item = cocotb.coverage.coverage_db["top.apb.writeXdelay"]
-    top_cover_item = cocotb.coverage.coverage_db["top"]
+    apb_cover_item = coverage_db["top.apb.writeXdelay"]
+    top_cover_item = coverage_db["top"]
     
     #we define test end condition as reaching 99% coverage at the 
     #top cover item
     cov_op = 0
-    while cov_op < 99:
+    while cov_op < 90:
         
         #restore randomly selected checkpoint
         if ENABLE_CHECKPOINTS:
             if CHECKPOINTS_TREE_STRUCTURE:
-                chkp_to_restore = random.choice(checkpoints.keys())
+                chkp_to_restore = random.choice(list(checkpoints.keys()))
             else:
                 chkp_to_restore = 'init'
 
@@ -355,5 +365,5 @@ def test_tree(dut):
             )
             
     log.info("Functional coverage details:")
-    cocotb.coverage.reportCoverage(log.info, bins=False)
+    reportCoverage(log.info, bins=False)
     
