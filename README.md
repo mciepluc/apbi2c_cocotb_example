@@ -5,6 +5,8 @@ No support of hardware verification languages such as _e_ or SystemVerilog is re
 * cocotb documentation http://cocotb.readthedocs.org
 * Freecores repository http://freecores.github.io
 
+This testbench is used as an example in the [Article published in Jorunal of Electronic Testing](https://link.springer.com/article/10.1007/s10836-019-05777-0).
+
 The testbench contains all important parts of an advanced verification environment:
 * external interface agents (for APB and I2C, in files ``apb.py`` and ``i2c.py``),
 * functional coverage as a verification plan (``coverage.py``),
