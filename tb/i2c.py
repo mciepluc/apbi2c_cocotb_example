@@ -1,5 +1,5 @@
 
-'''Copyright (c) 2017, Marek Cieplucha, https://github.com/mciepluc
+'''Copyright (c) 2019, Marek Cieplucha, https://github.com/mciepluc
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, 

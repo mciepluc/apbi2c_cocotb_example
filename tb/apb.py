@@ -1,5 +1,5 @@
 
-'''Copyright (c) 2017, Marek Cieplucha, https://github.com/mciepluc
+'''Copyright (c) 2019, Marek Cieplucha, https://github.com/mciepluc
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, 
@@ -51,7 +51,7 @@ class APBTransaction(Randomized):
         self.delay = delay
         
         #delay as a random variable
-        self.addRand("delay", range(0,10))
+        self.add_rand("delay", range(0,10))
 
 #APB Interface Logic
 class APBSlave(BusDriver, BusMonitor):

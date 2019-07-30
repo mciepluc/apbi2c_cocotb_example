@@ -1,5 +1,5 @@
 
-'''Copyright (c) 2017, Marek Cieplucha, https://github.com/mciepluc
+'''Copyright (c) 2019, Marek Cieplucha, https://github.com/mciepluc
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, 
@@ -38,14 +38,17 @@ from cocotb_coverage.coverage import *
 #APB functional coverage: READ/WRITE, random delay and all addresses 
 #from the register space
 #also cross of the delay with R/W
-APBCoverage = coverageSection(
+APBCoverage = coverage_section(
   CoverPoint("top.apb.delay", 
     xf = lambda xaction : xaction.delay, 
     rel = lambda _val, _range : _range[0] < _val < _range[1],
-    bins = [(0,3), (4,7), (8,15)]
+    bins = [(0,3), (4,7), (8,15)],
+    bins_labels = ["small", "medium", "big"]
   ),
   CoverPoint("top.apb.addr",  
-    xf = lambda xaction : xaction.addr, bins = [0,8,12]
+    xf = lambda xaction : xaction.addr, bins = [0,4,8,12],
+    bins_labels = ["write_access", "read_access", "i2c_reg_config", 
+      "i2c_reg_timeout"]
   ),
   CoverPoint("top.apb.write", 
     xf = lambda xaction : xaction.write, bins = [True, False]
@@ -56,7 +59,7 @@ APBCoverage = coverageSection(
 )
 
 #I2C Functional Coverage - just check if different data processed
-I2CCoverage = coverageSection(
+I2CCoverage = coverage_section(
   CoverPoint("top.i2c.data", 
     xf = lambda xaction : xaction.data >> 24, 
     bins = list(range(0,255))
@@ -65,7 +68,7 @@ I2CCoverage = coverageSection(
 
 #Operations coverage: READ/WRITE, number of words transmitted and clock divider
 #cross of the above as a main verification goal
-OperationsCoverage = coverageSection(
+OperationsCoverage = coverage_section(
   CoverPoint("top.op.direction",  
     xf = lambda operation, ok : operation.direction, 
     bins = ['read', 'write']
@@ -87,7 +90,7 @@ OperationsCoverage = coverageSection(
 
 #Operations order coverage: check if performed two operations
 #in a defined order e.g. read then write
-OperationsOrderCoverage = coverageSection(
+OperationsOrderCoverage = coverage_section(
   CoverPoint("top.op.direction_order",  
     xf = lambda prev_operation, operation : 
       (prev_operation.direction, operation.direction),

@@ -1,5 +1,5 @@
 
-'''Copyright (c) 2017, Marek Cieplucha, https://github.com/mciepluc
+'''Copyright (c) 2019, Marek Cieplucha, https://github.com/mciepluc
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, 
@@ -40,7 +40,6 @@ from cocotb.scoreboard import Scoreboard
 from cocotb.utils import get_sim_time
 
 from cocotb_coverage.crv import Randomized
-from cocotb_coverage.coverage import reportCoverage
 from cocotb_coverage.coverage import coverage_db
 
 from apb import *
@@ -51,16 +50,13 @@ from i2c import *
 #enable detailed logging of APB and I2C transactions
 LOG_XACTION_ENABLE = True
 
-#Below options must be "False" for Icarus, but likely will lead to controller
-#hang-up, checkpoints should be enabled in order to restart each test sequence
-#from reset (or stable) state
-
 #enable usage of checkpoints during the test 
-ENABLE_CHECKPOINTS = False
+ENABLE_CHECKPOINTS = True
+
 #if set false, corresponds to standard regression suite where tests are started
 #from the init state, when true, tests may be started from already achieved 
 #state, which enables faster coverage closure
-CHECKPOINTS_TREE_STRUCTURE = False
+CHECKPOINTS_TREE_STRUCTURE = True
 
 @cocotb.test()
 def test_tree(dut):
@@ -129,11 +125,11 @@ def test_tree(dut):
             self.divider_range = (1,3)
             
             #I2C_Operation objects may be fully randomized
-            self.addRand("direction",["write", "read"])
-            self.addRand("repeat_range",
+            self.add_rand("direction",["write", "read"])
+            self.add_rand("repeat_range",
               [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
             )
-            self.addRand("divider_range",
+            self.add_rand("divider_range",
               [(1,3), (4,7), (8,11), (12,15), (16,23), (24,31)]
             )
         
@@ -196,7 +192,9 @@ def test_tree(dut):
             guard_int = guard_int + 1
             yield RisingEdge(dut.PCLK)
             if guard_int == 50000:
-                raise TestFailure("Controller hang-up!")
+                #raise TestFailure("Controller hang-up!")
+                    ok = False
+                    break
             
         #a simple scoreboarding...
         #compare data written to APB with catched on I2C interface
@@ -281,7 +279,7 @@ def test_tree(dut):
         checkpoints = {}
         get_checkpoint_hier(dut)
         #the fist checkpoint is just after reset
-        checkpoints['init'] = (checkpoint(), None)
+        checkpoints['0'] = (checkpoint(), None)
     
     #list of already covered operations, used to constraint the randomization
     already_covered = []
@@ -294,7 +292,7 @@ def test_tree(dut):
     apb_cover_item = coverage_db["top.apb.writeXdelay"]
     top_cover_item = coverage_db["top"]
     
-    #we define test end condition as reaching 99% coverage at the 
+    #we define test end condition as reaching 90% coverage at the 
     #top cover item
     cov_op = 0
     while cov_op < 90:
@@ -304,9 +302,10 @@ def test_tree(dut):
             if CHECKPOINTS_TREE_STRUCTURE:
                 chkp_to_restore = random.choice(list(checkpoints.keys()))
             else:
-                chkp_to_restore = 'init'
+                chkp_to_restore = '0'
 
-            log.info("Restoring a simulation checkpoint: " + chkp_to_restore)
+            log.info("Restoring a simulation checkpoint at %s ns" % 
+                chkp_to_restore)
             current_chceckpoint = checkpoints[chkp_to_restore]
             restore(current_chceckpoint[0])
     
@@ -365,5 +364,6 @@ def test_tree(dut):
             )
             
     log.info("Functional coverage details:")
-    reportCoverage(log.info, bins=False)
+    coverage_db.report_coverage(log.info, bins=False)
+    coverage_db.export_to_xml("results_coverage.xml")
     

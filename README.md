@@ -1,11 +1,14 @@
-This is an example testbench using the **cocotb** framework for the **apbi2c** controller from freecores.
+This is an example testbench using the **cocotb** framework with **cocotb-coverage** extension for the **apbi2c** controller verification from freecores.
 The intention is to present advanced metric-driven and constrained-random functional verification techniques using a pure Python-based implementation.
 No support of hardware verification languages such as _e_ or SystemVerilog is required, which enables use of an arbitrary basic HDL simulator for the entire verification process. 
 
 * cocotb documentation http://cocotb.readthedocs.org
+* cocotb-coverage documentation http://cocotb-coverage.readthedocs.org
 * Freecores repository http://freecores.github.io
 
 This testbench is used as an example in the [Article published in Jorunal of Electronic Testing](https://link.springer.com/article/10.1007/s10836-019-05777-0).
+
+To run thie example you need to install **cocotb** and **cocotb-coverage** pip packages.
 
 The testbench contains all important parts of an advanced verification environment:
 * external interface agents (for APB and I2C, in files ``apb.py`` and ``i2c.py``),
@@ -15,7 +18,7 @@ The testbench contains all important parts of an advanced verification environme
 * constrained randomization (for generating sequences),
 * coverage-driven test scenario adjustment.
 
-Additionally, the testbench presents the idea of checkpointing, which is storing a specific simulation state of the DUT, to be used later for various test sequences, starting from the same point. This option can be disabled.
+Additionally, the testbench presents the idea of checkpointing, which is storing a specific simulation state of the DUT, to be used later as a new starting point of the following test sequences. This option can be disabled (global variables ENABLE_CHECKPOINTS and CHECKPOINTS_TREE_STRUCTURE) as it may now work properly under all simulation platforms.
 
 There are a number of issues with the **apbi2c** controller, discovered with this testbench.
 The test completes successfully only with the checkpointing option enabled, as this prevents from continuing operation of the DUT at lock-up state. There are a number of errors discovered, such as:

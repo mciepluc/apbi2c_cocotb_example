@@ -1,9 +1,3 @@
 [submodule "apbi2c"]
 	path = apbi2c
 	url = https://github.com/freecores/apbi2c
-[submodule "cocotb-coverage"]
-	path = cocotb-coverage
-	url = https://github.com/mciepluc/cocotb-coverage
-[submodule "cocotb"]
-	path = cocotb
-	url = https://github.com/potentialventures/cocotb
