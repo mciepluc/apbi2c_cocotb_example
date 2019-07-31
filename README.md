@@ -8,7 +8,7 @@ No support of hardware verification languages such as _e_ or SystemVerilog is re
 
 This testbench is used as an example in the [Article published in Jorunal of Electronic Testing](https://link.springer.com/article/10.1007/s10836-019-05777-0).
 
-To run thie example you need to install **cocotb** and **cocotb-coverage** pip packages.
+To run thie example you need to install [cocotb](https://pypi.org/project/cocotb/) and [cocotb-coverage](https://pypi.org/project/cocotb-coverage/) pip packages.
 
 The testbench contains all important parts of an advanced verification environment:
 * external interface agents (for APB and I2C, in files ``apb.py`` and ``i2c.py``),
