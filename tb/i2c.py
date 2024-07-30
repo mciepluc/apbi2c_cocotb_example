@@ -1,6 +1,7 @@
-
-'''Copyright (c) 2019, Marek Cieplucha, https://github.com/mciepluc
+'''Copyright (c) 2019-2024, MC ASIC Design Consulting
 All rights reserved.
+
+Author: Marek Cieplucha, https://github.com/mciepluc
 
 Redistribution and use in source and binary forms, with or without modification, 
 are permitted provided that the following conditions are met (The BSD 2-Clause 
@@ -32,10 +33,8 @@ Testbench of the apbi2c controller - I2C Transaction and Driver + Monitor
 import random
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly
-from cocotb.binary import BinaryValue
-from cocotb.drivers import BusDriver
-from cocotb.monitors import BusMonitor
-from cocotb.decorators import coroutine
+from cocotb_bus.drivers import BusDriver
+from cocotb_bus.monitors import BusMonitor
 
 from cocotb_coverage.crv import Randomized
 
@@ -69,14 +68,13 @@ class I2CMonitor(BusMonitor):
         BusMonitor.__init__(self, entity, name, clock)
         self.clock = clock
         
-    @cocotb.coroutine
-    def _monitor_recv(self):
+    async def _monitor_recv(self):
         started = False
         pre_started = False
         prev_scl = 1
         while True:
-            yield RisingEdge(self.clock)
-            yield ReadOnly()
+            await RisingEdge(self.clock)
+            await ReadOnly()
             try:
                 sda = 0 if self.bus.SDA == 'x' else int(self.bus.SDA)
             except ValueError:
@@ -120,43 +118,41 @@ class I2CDriver(BusDriver):
         self.bus.SDA.setimmediatevalue(1)
         self.bus.SCL.setimmediatevalue(1)
         
-    @cocotb.coroutine
-    def drive_high(self):
-        yield RisingEdge(self.clock)
-        self.bus.SCL <= 1
-        self.bus.SDA <= 1
+    async def drive_high(self):
+        await RisingEdge(self.clock)
+        self.bus.SCL.value = 1
+        self.bus.SDA.value = 1
         
-    @cocotb.coroutine
-    def send(self, transaction):
-        self.bus.SCL <= 1
-        self.bus.SDA <= 1
+    async def send(self, transaction):
+        self.bus.SCL.value = 1
+        self.bus.SDA.value = 1
         for i in range(2*transaction.divider):
-            yield RisingEdge(self.clock)
-        self.bus.SDA <= 0
+            await RisingEdge(self.clock)
+        self.bus.SDA.value = 0
         for i in range(32):
-            yield RisingEdge(self.clock)
-            self.bus.SCL <= 0
+            await RisingEdge(self.clock)
+            self.bus.SCL.value = 0
             for j in range(transaction.divider):
-                yield RisingEdge(self.clock)
+                await RisingEdge(self.clock)
             if (i%8==0) and (i > 0):
-                self.bus.SCL <= 1
-                yield RisingEdge(self.clock)
-                self.bus.SCL <= 0
+                self.bus.SCL.value = 1
+                await RisingEdge(self.clock)
+                self.bus.SCL.value = 0
                 for j in range(transaction.divider):
-                    yield RisingEdge(self.clock)
-            self.bus.SCL <= 1
-            self.bus.SDA <= (transaction.data >> i) & 0x01
-        yield RisingEdge(self.clock)
-        self.bus.SCL <= 0
+                    await RisingEdge(self.clock)
+            self.bus.SCL.value = 1
+            self.bus.SDA.value = (transaction.data >> i) & 0x01
+        await RisingEdge(self.clock)
+        self.bus.SCL.value = 0
         for j in range(transaction.divider):
-            yield RisingEdge(self.clock)
-        self.bus.SCL <= 1
-        yield RisingEdge(self.clock)
-        self.bus.SCL <= 0
+            await RisingEdge(self.clock)
+        self.bus.SCL.value = 1
+        await RisingEdge(self.clock)
+        self.bus.SCL.value = 0
         for j in range(transaction.divider):
-            yield RisingEdge(self.clock)
-        self.bus.SCL <= 1
-        self.bus.SDA <= 0
-        yield RisingEdge(self.clock)
-        self.bus.SDA <= 1
+            await RisingEdge(self.clock)
+        self.bus.SCL.value = 1
+        self.bus.SDA.value = 0
+        await RisingEdge(self.clock)
+        self.bus.SDA.value = 1
             

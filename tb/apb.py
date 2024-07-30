@@ -32,11 +32,8 @@ Testbench of the apbi2c controller - APB Transaction and Agent
 
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly
-from cocotb.binary import BinaryValue
-from cocotb.drivers import BusDriver
-from cocotb.monitors import BusMonitor
-from cocotb.result import ReturnValue
-from cocotb.decorators import coroutine
+from cocotb_bus.drivers import BusDriver
+from cocotb_bus.monitors import BusMonitor
 
 from cocotb_coverage.crv import Randomized
 
@@ -74,39 +71,37 @@ class APBSlave(BusDriver, BusMonitor):
         self.bus.PWDATA.setimmediatevalue(0)
         
     #APB DRIVER: Transaction Executed by Master
-    @cocotb.coroutine
-    def send(self, transaction):
+    async def send(self, transaction):
         rval = 0
-        yield RisingEdge(self.clock)
-        self.bus.PADDR <= transaction.addr
-        self.bus.PWDATA <= transaction.data
-        self.bus.PSELx <= 1
-        self.bus.PWRITE <= 1 if transaction.write else 0
-        yield RisingEdge(self.clock)
-        self.bus.PENABLE <= 1
+        await RisingEdge(self.clock)
+        self.bus.PADDR.value = transaction.addr
+        self.bus.PWDATA.value = transaction.data
+        self.bus.PSELx.value = 1
+        self.bus.PWRITE.value = 1 if transaction.write else 0
+        await RisingEdge(self.clock)
+        self.bus.PENABLE.value = 1
         while True:
-            yield ReadOnly()
+            await ReadOnly()
             if (self.bus.PREADY == 1):
                 rval = self.bus.PRDATA
                 break
-            yield RisingEdge(self.clock)
-        yield RisingEdge(self.clock)
-        self.bus.PADDR <= 0
-        self.bus.PWDATA <= 0
-        self.bus.PSELx <= 0
-        self.bus.PWRITE <= 0
-        self.bus.PENABLE <= 0
+            await RisingEdge(self.clock)
+        await RisingEdge(self.clock)
+        self.bus.PADDR.value = 0
+        self.bus.PWDATA.value = 0
+        self.bus.PSELx.value = 0
+        self.bus.PWRITE.value = 0
+        self.bus.PENABLE.value = 0
         for i in range(transaction.delay):
-            yield RisingEdge(self.clock)
-        raise ReturnValue(rval)
+            await RisingEdge(self.clock)
+        return rval
 
     #APB MONITOR: Observe interface to monitor all transactions
-    @cocotb.coroutine
-    def _monitor_recv(self):
+    async def _monitor_recv(self):
         delay = 0
         while True:
-            yield RisingEdge(self.clock)
-            yield ReadOnly()
+            await RisingEdge(self.clock)
+            await ReadOnly()
             if (self.bus.PENABLE == 1) & (self.bus.PREADY == 1):
                 data = self.bus.PWDATA if self.bus.PWRITE \
                   else self.bus.PRDATA

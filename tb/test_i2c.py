@@ -1,5 +1,5 @@
 
-'''Copyright (c) 2019, Marek Cieplucha, https://github.com/mciepluc
+'''Copyright (c) 2016-2024, Marek Cieplucha, https://github.com/mciepluc
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, 
@@ -36,19 +36,20 @@ import cocotb_coverage
 from cocotb.triggers import ReadOnly
 from cocotb.clock import Clock, Timer
 from cocotb.result import ReturnValue, TestFailure
-from cocotb.scoreboard import Scoreboard
+from cocotb_bus.scoreboard import Scoreboard
 from cocotb.utils import get_sim_time
 
 from cocotb_coverage.crv import Randomized
 from cocotb_coverage.coverage import coverage_db
+from cocotb_checkpoint.checkpoint import *
 
 from apb import *
-from checkpoint import *
+#from checkpoint import *
 from coverage import *
 from i2c import *
 
 #enable detailed logging of APB and I2C transactions
-LOG_XACTION_ENABLE = True
+LOG_XACTION_ENABLE = False
 
 #enable usage of checkpoints during the test 
 ENABLE_CHECKPOINTS = True
@@ -58,12 +59,12 @@ ENABLE_CHECKPOINTS = True
 #state, which enables faster coverage closure
 CHECKPOINTS_TREE_STRUCTURE = True
 
-@cocotb.test()
-def test_tree(dut):
+@cocotb.test
+async def test_tree(dut):
     """Testing APBI2C core"""
     
     log = cocotb.logging.getLogger("cocotb.test")
-    cocotb.fork(Clock(dut.PCLK, 1000).start())
+    cocotb.start_soon(Clock(dut.PCLK, 1000).start())
 
     #instantiate the APB agent (monitor and driver) (see apb.py)
     apb = APBSlave(dut, name=None, clock=dut.PCLK)
@@ -73,11 +74,10 @@ def test_tree(dut):
     i2c_driver = I2CDriver(dut, name=None, clock=dut.PCLK)
             
     #write to config register via APB
-    @cocotb.coroutine
-    def config_write(addr, data):
+    async def config_write(addr, data):
         xaction = APBTransaction(addr, data, write=True)
         xaction.randomize()
-        yield apb.send(xaction)
+        await apb.send(xaction)
             
     #store observed I2C transactions
     received_i2c_xactions = []
@@ -171,10 +171,9 @@ def test_tree(dut):
               
               
     #a test sequence - complete I2C Write Operation
-    @cocotb.coroutine
-    def segment_i2c_write_operation(operation):
+    async def segment_i2c_write_operation(operation):
         expected_out = []
-        yield config_write(8, 0x0001 | (operation.divider << 2))
+        await config_write(8, 0x0001 | (operation.divider << 2))
         
         #create xaction objects and fill FIFO up via APB with data to be send
         apb_xaction = APBTransaction(0, 0, write=True)
@@ -183,14 +182,14 @@ def test_tree(dut):
             i2c_xaction.randomize()
             apb_xaction.data = i2c_xaction.data
             apb_xaction.randomize()
-            yield apb.send(apb_xaction)
+            await apb.send(apb_xaction)
             expected_out.append(i2c_xaction)
         
         #wait for FIFO empty - meaning all data sent out
         guard_int = 0
         while not dut.INT_TX.value:
             guard_int = guard_int + 1
-            yield RisingEdge(dut.PCLK)
+            await RisingEdge(dut.PCLK)
             if guard_int == 50000:
                 #raise TestFailure("Controller hang-up!")
                     ok = False
@@ -212,17 +211,16 @@ def test_tree(dut):
         sample_operation(operation, ok)
         
     #a test sequence - complete I2C Read Operation
-    @cocotb.coroutine
-    def segment_i2c_read_operation(operation):
+    async def segment_i2c_read_operation(operation):
         expected_in = []
-        yield config_write(8, 0x0002 | (operation.divider << 2))
+        await config_write(8, 0x0002 | (operation.divider << 2))
         
         #create I2C xaction objects and send on the interface
         for i in range(operation.repeat):
             i2c_xaction = I2CTransaction(0, write=True)
             i2c_xaction.randomize()
             expected_in.append(i2c_xaction)
-            yield i2c_driver.send(i2c_xaction)
+            await i2c_driver.send(i2c_xaction)
         
         #a simple scoreboarding...
         #compare data written on I2C interface with read from FIFO
@@ -231,7 +229,7 @@ def test_tree(dut):
         for i in range(operation.repeat):
             try:
                 apb_xaction.randomize()
-                rdata = yield apb.send(xaction)
+                rdata = await apb.send(xaction)
                 if (rdata != expected_in[i].data):
                     ok = False
             except:
@@ -243,8 +241,7 @@ def test_tree(dut):
         sample_operation(operation, ok)
         
     #a test sequence - APB registers operation (sort of UVM_REG :) )
-    @cocotb.coroutine
-    def segment_apb_rw(repeat = 1, addr = 0xC):
+    async def segment_apb_rw(repeat = 1, addr = 0xC):
         
         apb_xaction_wr = APBTransaction(addr, 0, write=True)
         apb_xaction_rd = APBTransaction(addr, 0, write=False)
@@ -254,9 +251,9 @@ def test_tree(dut):
             data = random.randint(0,0xFFFFFFFF)
             apb_xaction_wr.randomize()
             apb_xaction_wr.data = data
-            yield apb.send(apb_xaction_wr)
+            await apb.send(apb_xaction_wr)
             apb_xaction_rd.randomize()
-            rdata = yield apb.send(apb_xaction_rd)
+            rdata = await apb.send(apb_xaction_rd)
             if LOG_XACTION_ENABLE:
                 try:
                     if rdata != data:
@@ -268,11 +265,11 @@ def test_tree(dut):
                     log.error("APB read data @ 0x%08X is 'X'" % addr)
                 
     #reset the DUT
-    dut.PRESETn <= 0
-    yield Timer(2000)
-    dut.PRESETn <= 1
+    dut.PRESETn.value = 0
+    await Timer(2000)
+    dut.PRESETn.value = 1
     
-    yield config_write(12, 0x0100)
+    await config_write(12, 0x0100)
 
     #if checkpoints used, store them in the map, (see checkpoint.py)
     if ENABLE_CHECKPOINTS:
@@ -326,9 +323,9 @@ def test_tree(dut):
         
         #call test sequence
         if i2c_op.direction == "read":
-            yield segment_i2c_read_operation(i2c_op)
+            await segment_i2c_read_operation(i2c_op)
         else:
-            yield segment_i2c_write_operation(i2c_op)
+            await segment_i2c_write_operation(i2c_op)
             
         if ENABLE_CHECKPOINTS:
             #if status is OK, add this simulation point to the checkpoints list
@@ -340,7 +337,7 @@ def test_tree(dut):
         #call APB test sequence as long as cover item apb.writeXdelay 
         #coverage level is below 100%
         if apb_cover_item.coverage*100/apb_cover_item.size < 100:
-            yield segment_apb_rw(repeat = random.randint(1,5))
+            await segment_apb_rw(repeat = random.randint(1,5))
                     
         #update the coverage level
         
