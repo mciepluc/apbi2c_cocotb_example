@@ -8,7 +8,7 @@ No support of hardware verification languages such as _e_ or SystemVerilog is re
 
 This testbench is used as an example in the [Article published in Journal of Electronic Testing](https://link.springer.com/article/10.1007/s10836-019-05777-0).
 
-To run the example you need to install the [cocotb](https://pypi.org/project/cocotb/) and [cocotb-coverage](https://pypi.org/project/cocotb-coverage/) pip packages.
+To run the example you need to install the [cocotb](https://pypi.org/project/cocotb/) and [cocotb-coverage](https://pypi.org/project/cocotb-coverage/) pip packages. You also need [cocotb-checkpoint](https://github.com/mciepluc/cocotb-checkpoint) to be linked to your Python environment.
 
 To download the example code with the **apbi2c** controller submodule, use
 
